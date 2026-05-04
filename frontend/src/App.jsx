@@ -1,10 +1,8 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Login from './pages/Login';
-
-// Component giả lập cho các trang sau này (Bạn sẽ tạo file riêng sau)
-const EmployerDashboard = () => <div className="container mt-5"><h1>Employer Dashboard</h1><p>Chào mừng nhà tuyển dụng!</p></div>;
-const CandidateJobs = () => <div className="container mt-5"><h1>Danh sách việc làm</h1><p>Tìm kiếm công việc mơ ước tại đây.</p></div>;
+import EmployerDashboard from './pages/EmployerDashboard';
+import CandidateJobs from './pages/CandidateJobs';
 
 function App() {
   return (
