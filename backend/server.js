@@ -10,6 +10,9 @@ app.use(cors()); // Cho phép React truy cập API
 app.use(express.json()); // Để đọc được dữ liệu JSON từ request body
 
 app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/jobs', require('./routes/jobRoutes'));
+app.use('/api/admin', require('./routes/adminRoutes'));
+app.use('/api/applications', require('./routes/appRoutes'));
 
 // 2. Hàm kết nối MongoDB & Khởi chạy Server
 const startServer = async () => {
