@@ -1,5 +1,5 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import EmployerDashboard from './pages/EmployerDashboard';
 import CandidateJobs from './pages/CandidateJobs';
@@ -7,27 +7,35 @@ import CandidateJobs from './pages/CandidateJobs';
 function App() {
   return (
     <Router>
-      <div className="App">
-        {/* Bạn có thể thêm Navbar chung ở đây nếu muốn */}
-        <Routes>
-          {/* Trang mặc định sẽ là Login */}
-          <Route path="/" element={<Navigate to="/login" />} />
-          
-          <Route path="/login" element={<Login />} />
-
-          {/* Các tuyến đường chúng ta sẽ phát triển tiếp theo */}
-          <Route path="/employer-dashboard" element={<EmployerDashboard />} />
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        
+        {/* NHÓM 1: Chỉ dành cho Candidate */}
+        <Route element={<ProtectedRoute allowedRoles={['candidate', 'admin']} />}>
           <Route path="/jobs" element={<CandidateJobs />} />
+        </Route>
 
-          {/* Trang lỗi 404 */}
-          <Route path="*" element={
+        {/* NHÓM 2: Chỉ dành cho Employer hoặc Admin */}
+        <Route element={<ProtectedRoute allowedRoles={['employer', 'admin']} />}>
+          <Route path="/employer-dashboard" element={<EmployerDashboard />} />
+        </Route>
+
+        {/* NHÓM 3: Chỉ dành riêng cho Admin */}
+        <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
+          <Route path="/admin-panel" element={<div>Trang quản trị hệ thống</div>} />
+        </Route>
+
+        {/* Trang thông báo không có quyền truy cập */}
+        <Route path="/unauthorized" element={
             <div className="container text-center mt-5">
-              <h1>404</h1>
-              <p>Trang bạn tìm kiếm không tồn tại.</p>
+                <h1 className="text-danger">403 - Không có quyền truy cập</h1>
+                <p>Bạn không có quyền xem trang này với tài khoản hiện tại.</p>
+                <button className="btn btn-primary" onClick={() => window.location.href='/login'}>Quay lại đăng nhập</button>
             </div>
-          } />
-        </Routes>
-      </div>
+        } />
+
+        <Route path="/" element={<Navigate to="/login" />} />
+      </Routes>
     </Router>
   );
 }
