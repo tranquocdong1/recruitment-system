@@ -3,15 +3,16 @@ import api from "../api/axios";
 
 const CandidateJobs = () => {
   const [jobs, setJobs] = useState([]);
-  const [resumeLink, setResumeLink] = useState("");
   const [selectedJob, setSelectedJob] = useState(null);
   const [resumeFile, setResumeFile] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // 1. Lấy tất cả công việc đang tuyển
   useEffect(() => {
     const fetchJobs = async () => {
       try {
         const res = await api.get("/jobs");
+        // Backend bây giờ trả về thêm trường isApplied: true/false
         setJobs(res.data.data.jobs);
       } catch (err) {
         console.error("Lỗi lấy danh sách job", err);
@@ -23,25 +24,41 @@ const CandidateJobs = () => {
   // 2. Xử lý ứng tuyển
   const handleApply = async (e) => {
     e.preventDefault();
+    if (!resumeFile) return alert("Vui lòng chọn file CV!");
 
-    // Sử dụng FormData để gửi file
-      const formData = new FormData();
-      formData.append("jobId", selectedJob._id);
-      formData.append("resume", resumeFile); // 'resume' phải khớp với tên trong uploadCloud.single('resume')
+    setLoading(true);
+
+    const formData = new FormData();
+    formData.append("jobId", selectedJob._id);
+    formData.append("resume", resumeFile);
 
     try {
       await api.post("/applications/apply", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
+
+      // --- CẬP NHẬT UI TẠI CHỖ ---
+      // Tìm job vừa ứng tuyển trong state và đổi isApplied thành true
+      setJobs((prevJobs) =>
+        prevJobs.map((job) =>
+          job._id === selectedJob._id ? { ...job, isApplied: true } : job
+        )
+      );
+
       alert("Ứng tuyển thành công!");
-      setResumeLink("");
+      
+      // Reset form
+      setResumeFile(null);
       setSelectedJob(null);
-      // Đóng Modal (Dùng cơ chế của Bootstrap)
+
+      // Đóng Modal
       const modalElement = document.getElementById("applyModal");
       const modal = window.bootstrap.Modal.getInstance(modalElement);
       modal.hide();
     } catch (err) {
-      alert("Lỗi upload file: " + err.message);
+      alert("Lỗi: " + (err.response?.data?.message || err.message));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -63,14 +80,23 @@ const CandidateJobs = () => {
                 >
                   {job.description}
                 </p>
-                <button
-                  className="btn btn-outline-primary"
-                  data-bs-toggle="modal"
-                  data-bs-target="#applyModal"
-                  onClick={() => setSelectedJob(job)}
-                >
-                  Xem chi tiết & Ứng tuyển
-                </button>
+
+                {/* --- THAY ĐỔI NÚT BẤM DỰA TRÊN TRẠNG THÁI --- */}
+                {job.isApplied ? (
+                  <button className="btn btn-secondary w-100" disabled>
+                    <i className="bi bi-check-circle-fill me-2"></i>
+                    Đã ứng tuyển
+                  </button>
+                ) : (
+                  <button
+                    className="btn btn-outline-primary w-100"
+                    data-bs-toggle="modal"
+                    data-bs-target="#applyModal"
+                    onClick={() => setSelectedJob(job)}
+                  >
+                    Xem chi tiết & Ứng tuyển
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -104,7 +130,7 @@ const CandidateJobs = () => {
                 </p>
                 <div className="mb-3">
                   <label className="form-label">
-                    Link CV của bạn (Drive/Cloudinary)
+                    Chọn file CV (PDF, DOC, DOCX)
                   </label>
                   <input
                     type="file"
@@ -120,11 +146,27 @@ const CandidateJobs = () => {
                   type="button"
                   className="btn btn-secondary"
                   data-bs-dismiss="modal"
+                  disabled={loading}
                 >
                   Đóng
                 </button>
-                <button type="submit" className="btn btn-primary">
-                  Gửi đơn ứng tuyển
+                <button
+                  type="submit"
+                  className="btn btn-primary"
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <>
+                      <span
+                        className="spinner-border spinner-border-sm me-2"
+                        role="status"
+                        aria-hidden="true"
+                      ></span>
+                      Đang gửi...
+                    </>
+                  ) : (
+                    "Gửi đơn ứng tuyển"
+                  )}
                 </button>
               </div>
             </form>

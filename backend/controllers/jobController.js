@@ -16,8 +16,23 @@ exports.createJob = async (req, res) => {
 // 2. LẤY TẤT CẢ TIN TUYỂN DỤNG (Dành cho Ứng viên xem)
 exports.getAllJobs = async (req, res) => {
     try {
-        const jobs = await Job.find().populate('employer', 'email'); // Lấy thêm email của employer
-        res.status(200).json({ status: 'success', results: jobs.length, data: { jobs } });
+        const jobs = await Job.find().lean(); // Dùng .lean() để có thể chỉnh sửa object trả về
+        const userId = req.user?.id;
+
+        const jobsWithStatus = await Promise.all(jobs.map(async (job) => {
+            let isApplied = false;
+            if (userId) {
+                // Kiểm tra xem có đơn ứng tuyển nào của User này cho Job này không
+                const application = await Application.findOne({ 
+                    job: job._id, 
+                    candidate: userId 
+                });
+                isApplied = !!application; // Chuyển thành boolean
+            }
+            return { ...job, isApplied };
+        }));
+
+        res.status(200).json({ status: 'success', data: { jobs: jobsWithStatus } });
     } catch (err) {
         res.status(400).json({ status: 'fail', message: err.message });
     }
