@@ -6,6 +6,7 @@ const router = express.Router();
 
 // Bất kỳ ai cũng có thể xem danh sách job
 router.get('/', getUserId, jobController.getAllJobs);
+router.get('/:id', getUserId, jobController.getJob);
 
 // Chỉ Employer mới được thực hiện các thao tác này
 router.post('/', protect, restrictTo('employer'), jobController.createJob);

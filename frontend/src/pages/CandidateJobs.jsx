@@ -1,20 +1,23 @@
 import React, { useEffect, useState } from "react";
 import api from "../api/axios";
-import { toast } from "react-toastify";
+import { Link } from "react-router-dom";
 
 const CandidateJobs = () => {
   const [jobs, setJobs] = useState([]);
-  const [selectedJob, setSelectedJob] = useState(null);
-  const [resumeFile, setResumeFile] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [filteredJobs, setFilteredJobs] = useState([]);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterLocation, setFilterLocation] = useState("");
 
-  // 1. Lấy tất cả công việc đang tuyển
+  // --- STATE PHÂN TRANG ---
+  const [currentPage, setCurrentPage] = useState(1);
+  const jobsPerPage = 10;
+
   useEffect(() => {
     const fetchJobs = async () => {
       try {
         const res = await api.get("/jobs");
-        // Backend bây giờ trả về thêm trường isApplied: true/false
         setJobs(res.data.data.jobs);
+        setFilteredJobs(res.data.data.jobs);
       } catch (err) {
         console.error("Lỗi lấy danh sách job", err);
       }
@@ -22,158 +25,165 @@ const CandidateJobs = () => {
     fetchJobs();
   }, []);
 
-  // 2. Xử lý ứng tuyển
-  const handleApply = async (e) => {
-    e.preventDefault();
-    if (!resumeFile) return toast.error("Vui lòng chọn file CV!");
+  useEffect(() => {
+    const results = jobs.filter((job) => {
+      const matchSearch =
+        job.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (job.company && job.company.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchLocation =
+        filterLocation === "" ||
+        job.location.toLowerCase().includes(filterLocation.toLowerCase());
+      return matchSearch && matchLocation;
+    });
+    setFilteredJobs(results);
+    setCurrentPage(1); // Reset về trang 1 khi lọc
+  }, [searchTerm, filterLocation, jobs]);
 
-    setLoading(true);
+  // --- LOGIC PHÂN TRANG ---
+  const indexOfLastJob = currentPage * jobsPerPage;
+  const indexOfFirstJob = indexOfLastJob - jobsPerPage;
+  const currentJobs = filteredJobs.slice(indexOfFirstJob, indexOfLastJob);
+  const totalPages = Math.ceil(filteredJobs.length / jobsPerPage);
 
-    const formData = new FormData();
-    formData.append("jobId", selectedJob._id);
-    formData.append("resume", resumeFile);
+  const paginate = (pageNumber) => {
+    setCurrentPage(pageNumber);
+    window.scrollTo(0, 0); // Cuộn lên đầu khi đổi trang
+  };
 
-    try {
-      await api.post("/applications/apply", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      // --- CẬP NHẬT UI TẠI CHỖ ---
-      // Tìm job vừa ứng tuyển trong state và đổi isApplied thành true
-      setJobs((prevJobs) =>
-        prevJobs.map((job) =>
-          job._id === selectedJob._id ? { ...job, isApplied: true } : job,
-        ),
-      );
-
-      toast.success(`Ứng tuyển thành công vị trí ${selectedJob.title}!`);
-
-      // Reset form
-      setResumeFile(null);
-      setSelectedJob(null);
-
-      // Đóng Modal
-      const modalElement = document.getElementById("applyModal");
-      const modal = window.bootstrap.Modal.getInstance(modalElement);
-      modal.hide();
-    } catch (err) {
-      const msg =
-        err.response?.data?.message || "Có lỗi xảy ra, vui lòng thử lại";
-      toast.error(msg);
-    } finally {
-      setLoading(false);
-    }
+  const getTimeAgo = (date) => {
+    const hours = Math.floor((new Date() - new Date(date)) / (1000 * 60 * 60));
+    return hours > 0 ? `${hours}h` : "Mới đăng";
   };
 
   return (
-    <div className="container mt-4">
-      <h2 className="mb-4">Cơ hội việc làm dành cho bạn 🌟</h2>
-      <div className="row">
-        {jobs.map((job) => (
-          <div className="col-md-6 mb-4" key={job._id}>
-            <div className="card shadow-sm h-100">
-              <div className="card-body">
-                <h5 className="card-title text-primary">{job.title}</h5>
-                <h6 className="card-subtitle mb-2 text-muted">
-                  📍 {job.location} | 💰 {job.salary}
-                </h6>
-                <p
-                  className="card-text text-truncate"
-                  style={{ maxHeight: "50px" }}
-                >
-                  {job.description}
-                </p>
-
-                {/* --- THAY ĐỔI NÚT BẤM DỰA TRÊN TRẠNG THÁI --- */}
-                {job.isApplied ? (
-                  <button className="btn btn-secondary w-100" disabled>
-                    <i className="bi bi-check-circle-fill me-2"></i>
-                    Đã ứng tuyển
-                  </button>
-                ) : (
-                  <button
-                    className="btn btn-outline-primary w-100"
-                    data-bs-toggle="modal"
-                    data-bs-target="#applyModal"
-                    onClick={() => setSelectedJob(job)}
-                  >
-                    Xem chi tiết & Ứng tuyển
-                  </button>
-                )}
-              </div>
+    <div className="container py-5" style={{ backgroundColor: "#f8f9fa", minHeight: "100vh" }}>
+      {/* Search Bar */}
+      <div className="row justify-content-center mb-4">
+        <div className="col-lg-10">
+          <div className="d-flex bg-white shadow-sm rounded-pill p-2 border">
+            <div className="flex-grow-1 d-flex align-items-center px-3 border-end">
+              <i className="bi bi-search text-muted me-2"></i>
+              <input
+                type="text"
+                className="form-control border-0 shadow-none"
+                placeholder="Job Title, Keyword, Company"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="flex-grow-1 d-flex align-items-center px-3">
+              <i className="bi bi-geo-alt text-muted me-2"></i>
+              <input
+                type="text"
+                className="form-control border-0 shadow-none"
+                placeholder="City, country, region"
+                value={filterLocation}
+                onChange={(e) => setFilterLocation(e.target.value)}
+              />
             </div>
           </div>
-        ))}
+        </div>
       </div>
 
-      {/* Modal Ứng tuyển */}
-      <div
-        className="modal fade"
-        id="applyModal"
-        tabIndex="-1"
-        aria-hidden="true"
-      >
-        <div className="modal-dialog">
-          <div className="modal-content">
-            <div className="modal-header">
-              <h5 className="modal-title">
-                Ứng tuyển vị trí: {selectedJob?.title}
-              </h5>
-              <button
-                type="button"
-                className="btn-close"
-                data-bs-dismiss="modal"
-                aria-label="Close"
-              ></button>
-            </div>
-            <form onSubmit={handleApply}>
-              <div className="modal-body">
-                <p>
-                  <strong>Mô tả:</strong> {selectedJob?.description}
-                </p>
-                <div className="mb-3">
-                  <label className="form-label">
-                    Chọn file CV (PDF, DOC, DOCX)
-                  </label>
-                  <input
-                    type="file"
-                    className="form-control"
-                    accept=".pdf,.doc,.docx"
-                    onChange={(e) => setResumeFile(e.target.files[0])}
-                    required
-                  />
+      <div className="row justify-content-center">
+        <div className="col-lg-10">
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h5 className="fw-bold m-0 text-dark">
+              {filteredJobs.length} Results {filteredJobs.length > 0 && `(Trang ${currentPage}/${totalPages})`}
+            </h5>
+          </div>
+
+          {/* Render 10 job của trang hiện tại */}
+          {currentJobs.map((job) => (
+            <Link to={`/jobs/${job._id}`} key={job._id} className="text-decoration-none">
+              <div
+                className="card border-0 shadow-sm mb-3 p-3 position-relative job-card-hover"
+                style={{ borderRadius: "16px", transition: "transform 0.2s, shadow 0.2s", cursor: "pointer" }}
+              >
+                <div className="d-flex">
+                  <div
+                    className="rounded-circle bg-primary d-flex align-items-center justify-content-center text-white fw-bold me-3"
+                    style={{ width: "50px", height: "50px", minWidth: "50px", fontSize: "1.2rem" }}
+                  >
+                    {job.company ? job.company.charAt(0) : "J"}
+                  </div>
+
+                  <div className="flex-grow-1">
+                    <div className="d-flex justify-content-between align-items-start">
+                      <div>
+                        <h5 className="mb-1 fw-bold text-dark">
+                          {job.title}
+                          <span className="text-muted fw-normal ms-2" style={{ fontSize: "0.95rem" }}>
+                            , {job.company || "Company"}
+                          </span>
+                        </h5>
+                        <div className="d-flex flex-wrap gap-3 text-muted mb-3" style={{ fontSize: "0.85rem" }}>
+                          <span><i className="bi bi-geo-alt me-1"></i>{job.location}</span>
+                          <span><i className="bi bi-briefcase me-1"></i>{job.jobType || "N/A"}</span>
+                          <span><i className="bi bi-star me-1"></i>{job.experience || "N/A"}</span>
+                          <span><i className="bi bi-building me-1"></i>{job.workType || "N/A"}</span>
+                        </div>
+                      </div>
+
+                      <div className="text-end">
+                        <span className="badge rounded-pill px-3 py-2 mb-1" style={{ backgroundColor: "#6f42c1", color: "white" }}>
+                          {job.salary || "Negotiable"}
+                        </span>
+                        <div className="text-muted small">{getTimeAgo(job.createdAt)}</div>
+                      </div>
+                    </div>
+
+                    <div className="d-flex flex-wrap gap-2 mb-3">
+                      {job.domains && job.domains.map((tag, idx) => (
+                        <span key={idx} className="badge bg-light text-dark border-0 px-3 py-2 rounded-pill" style={{ fontWeight: "500", fontSize: "0.75rem" }}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+
+                    <div className="d-flex justify-content-end">
+                      {job.isApplied ? (
+                        <span className="text-success fw-bold small"><i className="bi bi-check-circle-fill me-2"></i> Đã ứng tuyển</span>
+                      ) : (
+                        <span className="text-primary fw-bold small">Xem chi tiết & Ứng tuyển <i className="bi bi-arrow-right ms-1"></i></span>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div className="modal-footer">
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  data-bs-dismiss="modal"
-                  disabled={loading}
-                >
-                  Đóng
-                </button>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <>
-                      <span
-                        className="spinner-border spinner-border-sm me-2"
-                        role="status"
-                        aria-hidden="true"
-                      ></span>
-                      Đang gửi...
-                    </>
-                  ) : (
-                    "Gửi đơn ứng tuyển"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+            </Link>
+          ))}
+
+          {/* --- ĐIỀU KHIỂN PHÂN TRANG --- */}
+          {totalPages > 1 && (
+            <nav className="mt-4">
+              <ul className="pagination justify-content-center">
+                <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                  <button className="page-link rounded-start-pill" onClick={() => paginate(currentPage - 1)}>
+                    Trước
+                  </button>
+                </li>
+                
+                {[...Array(totalPages)].map((_, index) => (
+                  <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
+                    <button className="page-link" onClick={() => paginate(index + 1)}>
+                      {index + 1}
+                    </button>
+                  </li>
+                ))}
+
+                <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                  <button className="page-link rounded-end-pill" onClick={() => paginate(currentPage + 1)}>
+                    Sau
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          )}
+
+          {filteredJobs.length === 0 && (
+            <div className="text-center mt-5 text-muted">Không tìm thấy công việc phù hợp.</div>
+          )}
         </div>
       </div>
     </div>
