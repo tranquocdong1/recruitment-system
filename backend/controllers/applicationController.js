@@ -3,16 +3,18 @@ const Application = require('../models/Application');
 // A. DÀNH CHO CANDIDATE: Nộp đơn ứng tuyển
 exports.applyJob = async (req, res) => {
     try {
+        // Nếu upload thành công, Multer sẽ trả về link trong req.file.path
+        const resumeUrl = req.file ? req.file.path : req.body.resume;
+
         const newApp = await Application.create({
             job: req.body.jobId,
-            candidate: req.user.id, // Lấy từ Protect Middleware
-            resume: req.body.resume
+            candidate: req.user.id,
+            resume: resumeUrl
         });
         res.status(201).json({ status: 'success', data: newApp });
     } catch (err) {
-        res.status(400).json({ 
-            message: err.code === 11000 ? 'Bạn đã ứng tuyển công việc này rồi!' : err.message 
-        });
+        console.log("Lỗi chi tiết:", err.response?.data);
+        res.status(400).json({ message: err.message });
     }
 };
 
