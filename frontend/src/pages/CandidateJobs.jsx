@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../api/axios";
+import { toast } from "react-toastify";
 
 const CandidateJobs = () => {
   const [jobs, setJobs] = useState([]);
@@ -24,7 +25,7 @@ const CandidateJobs = () => {
   // 2. Xử lý ứng tuyển
   const handleApply = async (e) => {
     e.preventDefault();
-    if (!resumeFile) return alert("Vui lòng chọn file CV!");
+    if (!resumeFile) return toast.error("Vui lòng chọn file CV!");
 
     setLoading(true);
 
@@ -41,12 +42,12 @@ const CandidateJobs = () => {
       // Tìm job vừa ứng tuyển trong state và đổi isApplied thành true
       setJobs((prevJobs) =>
         prevJobs.map((job) =>
-          job._id === selectedJob._id ? { ...job, isApplied: true } : job
-        )
+          job._id === selectedJob._id ? { ...job, isApplied: true } : job,
+        ),
       );
 
-      alert("Ứng tuyển thành công!");
-      
+      toast.success(`Ứng tuyển thành công vị trí ${selectedJob.title}!`);
+
       // Reset form
       setResumeFile(null);
       setSelectedJob(null);
@@ -56,7 +57,9 @@ const CandidateJobs = () => {
       const modal = window.bootstrap.Modal.getInstance(modalElement);
       modal.hide();
     } catch (err) {
-      alert("Lỗi: " + (err.response?.data?.message || err.message));
+      const msg =
+        err.response?.data?.message || "Có lỗi xảy ra, vui lòng thử lại";
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

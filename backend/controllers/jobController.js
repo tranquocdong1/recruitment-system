@@ -1,4 +1,5 @@
 const Job = require('../models/Job');
+const Application = require('../models/Application');
 
 // 1. TẠO TIN TUYỂN DỤNG
 exports.createJob = async (req, res) => {
@@ -16,25 +17,45 @@ exports.createJob = async (req, res) => {
 // 2. LẤY TẤT CẢ TIN TUYỂN DỤNG (Dành cho Ứng viên xem)
 exports.getAllJobs = async (req, res) => {
     try {
-        const jobs = await Job.find().lean(); // Dùng .lean() để có thể chỉnh sửa object trả về
-        const userId = req.user?.id;
+        // 1. Lấy tất cả jobs, dùng .lean() để trả về plain object (dễ thêm trường isApplied)
+        const jobs = await Job.find().lean();
+        
+        // 2. Lấy userId từ middleware getUserId (nếu có)
+        const userId = req.user?._id || req.user?.id;
 
-        const jobsWithStatus = await Promise.all(jobs.map(async (job) => {
-            let isApplied = false;
-            if (userId) {
-                // Kiểm tra xem có đơn ứng tuyển nào của User này cho Job này không
-                const application = await Application.findOne({ 
-                    job: job._id, 
-                    candidate: userId 
+        // 3. Nếu không có user đăng nhập, trả về jobs với isApplied mặc định là false
+        if (!userId) {
+            const jobsWithFalseStatus = jobs.map(job => ({ ...job, isApplied: false }));
+            return res.status(200).json({
+                status: 'success',
+                data: { jobs: jobsWithFalseStatus }
+            });
+        }
+
+        // 4. Nếu có user, kiểm tra trạng thái ứng tuyển cho từng job
+        const jobsWithStatus = await Promise.all(
+            jobs.map(async (job) => {
+                const application = await Application.findOne({
+                    job: job._id,
+                    candidate: userId
                 });
-                isApplied = !!application; // Chuyển thành boolean
-            }
-            return { ...job, isApplied };
-        }));
+                return { 
+                    ...job, 
+                    isApplied: !!application // Trả về true nếu tìm thấy đơn, ngược lại false
+                };
+            })
+        );
 
-        res.status(200).json({ status: 'success', data: { jobs: jobsWithStatus } });
+        res.status(200).json({
+            status: 'success',
+            data: { jobs: jobsWithStatus }
+        });
     } catch (err) {
-        res.status(400).json({ status: 'fail', message: err.message });
+        console.error("🔥 Lỗi tại getAllJobs:", err);
+        res.status(400).json({
+            status: 'fail',
+            message: err.message
+        });
     }
 };
 

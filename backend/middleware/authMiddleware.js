@@ -43,3 +43,31 @@ exports.restrictTo = (...roles) => {
         next();
     };
 };
+
+exports.getUserId = async (req, res, next) => {
+    try {
+        let token;
+        // 1. Kiểm tra xem có token trong header không
+        if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
+            token = req.headers.authorization.split(' ')[1];
+        }
+
+        if (!token) {
+            return next(); // Không có token? Cứ cho đi tiếp, req.user sẽ trống.
+        }
+
+        // 2. Giải mã token
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+        // 3. Tìm user (để đảm bảo user vẫn tồn tại)
+        const currentUser = await User.findById(decoded.id);
+        if (currentUser) {
+            req.user = currentUser; // Gán user vào req để dùng ở Controller
+        }
+        
+        next();
+    } catch (err) {
+        // Nếu token sai hoặc hết hạn, cũng cho qua luôn nhưng không gán req.user
+        next();
+    }
+};
